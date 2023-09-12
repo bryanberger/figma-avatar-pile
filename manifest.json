@@ -1,0 +1,49 @@
+{
+  "name": "Avatar Pile",
+  "id": "1283289647952831053",
+  "api": "1.0.0",
+  "main": "dist/index.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "parameterOnly": true,
+  "parameters": [
+    {
+      "name": "Size",
+      "key": "size",
+      "description": "Individual avatar size in pixels",
+      "optional": false
+    },
+    {
+      "name": "Gap",
+      "key": "gap",
+      "description": "Gap between avatars in pixels",
+      "optional": false
+    },
+    {
+      "name": "Instances",
+      "key": "instances",
+      "description": "Number of avatars to generate",
+      "optional": false
+    },
+    {
+      "name": "Cut Depth %",
+      "key": "depth",
+      "description": "How far to cut into the previous avatar, percentage from 0-100",
+      "optional": true
+    },
+    {
+      "name": "Use Full End Cap",
+      "key": "useFullEndCap",
+      "description": "Use a full avatar as the end cap",
+      "optional": true
+    }
+  ],
+  "editorType": [
+    "figma"
+  ],
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ]
+  }
+}
