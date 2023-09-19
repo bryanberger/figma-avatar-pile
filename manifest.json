@@ -8,6 +8,12 @@
   "parameterOnly": true,
   "parameters": [
     {
+      "name": "Shape",
+      "key": "shape",
+      "description": "Circle or Squircle",
+      "optional": false
+    },
+    {
       "name": "Size",
       "key": "size",
       "description": "Individual avatar size in pixels",
@@ -26,9 +32,9 @@
       "optional": false
     },
     {
-      "name": "Cut Depth %",
+      "name": "Cut Depth",
       "key": "depth",
-      "description": "How far to cut into the previous avatar, percentage from 0-100",
+      "description": "How far to cut into the previous avatar, percentage if from 0 -> 1, px if >1",
       "optional": true
     },
     {

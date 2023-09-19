@@ -1,5 +1,5 @@
 // Defaults
-const DEFAULT_DEPTH_PERCENTAGE = 40;
+const DEFAULT_DEPTH_PERCENTAGE = 0.4; // 40%
 const DEFAULT_USE_FULL_END_CAP = true;
 
 // Need fills or the mask doesn't show
@@ -7,6 +7,9 @@ const dumbFill: Paint = { type: "SOLID", color: { r: 1, g: 0, b: 0 } };
 
 figma.parameters.on("input", async ({ query, key, result }) => {
   switch (key) {
+    case "shape":
+      result.setSuggestions(["circle", "squircle"]);
+      break;
     case "size":
       setSuggestionsForNumberInput(query, result, generateNumberArray(16, 96));
       break;
@@ -14,7 +17,7 @@ figma.parameters.on("input", async ({ query, key, result }) => {
       setSuggestionsForNumberInput(
         query,
         result,
-        generateNumberArray(2, 32, 1)
+        generateNumberArray(1, 32, 1)
       );
       break;
     case "instances":
@@ -26,10 +29,9 @@ figma.parameters.on("input", async ({ query, key, result }) => {
       break;
     // optional
     case "depth":
-      setSuggestionsForNumberInput(
+      setSuggestionsForPixelOrPercentageInput(
         query,
         result,
-        generateNumberArray(10, 90, 10)
       );
       break;
     // optional
@@ -43,6 +45,7 @@ figma.parameters.on("input", async ({ query, key, result }) => {
 
 // create a ParameterValuesType
 type ParameterValuesType = {
+  shape: 'circle' | 'squircle';
   size: number;
   gap: number;
   instances: number;
@@ -53,7 +56,7 @@ type ParameterValuesType = {
 // assign the ParameterValuesType to the parameters
 
 figma.on("run", async ({ parameters }) => {
-  let { size, gap, instances, depth, useFullEndCap } =
+  let { shape, size, gap, instances, depth, useFullEndCap } =
     parameters as ParameterValuesType;
 
   if (parameters === undefined) {
@@ -70,6 +73,10 @@ figma.on("run", async ({ parameters }) => {
   if (useFullEndCap === undefined) {
     useFullEndCap = DEFAULT_USE_FULL_END_CAP;
   }
+  console.log(depth)
+
+  // if depth contains a decimal
+
 
   // Format string params as numbers
   size = Number(size);
@@ -78,7 +85,8 @@ figma.on("run", async ({ parameters }) => {
   instances = Number(instances);
 
   // Calculate other values required
-  const cutDepth = (size * depth) / 100;
+  // const cutDepth = (size * depth) / 100;
+  const cutDepth = calculateCutDepth(size, depth);
   const cutoutDiameter = size + gap * 2;
   const cx = size - cutDepth;
   const cy = -gap;
@@ -104,12 +112,13 @@ figma.on("run", async ({ parameters }) => {
 
   function createSingleAvatarFull() {
     // This is where your fill will go
-    const avatar = figma.createEllipse();
+    const avatar = figma.createRectangle();
     avatar.name = "Fill";
     avatar.x = 0;
     avatar.y = 0;
     avatar.resize(size, size);
     avatar.fills = [dumbFill];
+    avatar.cornerRadius = shape === 'circle' ? size / 2 : calcCornerRadius(size);
     return avatar;
   }
 
@@ -124,18 +133,20 @@ figma.on("run", async ({ parameters }) => {
     const fill = createSingleAvatarFull();
 
     // Creating a Mask
-    const circle1 = figma.createEllipse();
-    circle1.name = "Circle 1";
+    const circle1 = figma.createRectangle();
+    circle1.name = "Full Shape";
     circle1.x = 0;
     circle1.y = 0;
     circle1.resize(size, size);
     circle1.fills = [dumbFill];
+    circle1.cornerRadius = shape === 'circle' ? size / 2 : calcCornerRadius(size);
 
-    const circle2 = figma.createEllipse();
-    circle2.name = "Circle 2";
+    const circle2 = figma.createRectangle();
+    circle2.name = "Cutout Shape";
     circle2.x = cx;
     circle2.y = cy;
     circle2.resize(cutoutDiameter, cutoutDiameter);
+    circle2.cornerRadius = shape === 'circle' ? cutoutDiameter / 2 : calcCornerRadius(size) + gap;
 
     // Subtract the Shapes, use it as a Mask
     const subtract = figma.subtract([circle1, circle2], frame);
@@ -145,6 +156,12 @@ figma.on("run", async ({ parameters }) => {
     return frame;
   }
 
+  // Place in the current viewable area
+  const viewportBounds = figma.viewport.bounds;
+  topLevelFrame.x = (viewportBounds.width - topLevelFrame.width) / 2 + viewportBounds.x;
+  topLevelFrame.y = (viewportBounds.height - topLevelFrame.height) / 2 + viewportBounds.y;
+
+  // Append it
   figma.currentPage.appendChild(topLevelFrame);
   figma.viewport.scrollAndZoomIntoView([topLevelFrame]);
 
@@ -171,9 +188,64 @@ function setSuggestionsForNumberInput(
   }
 }
 
+function setSuggestionsForPixelOrPercentageInput(query: string, result: SuggestionResults) {
+  if (query === "") {
+    result.setSuggestions([]);
+  } else {
+    const numericValue = parseNumericValue(query);
+    if (numericValue === null) {
+      result.setError("Please enter a valid numeric value or percentage");
+    } else {
+      const formattedValue = numericValue.toString(); // Format to 0 decimal places
+      // const formattedValue = numericValue.toFixed(2); // Format to 2 decimal places
+      result.setSuggestions([formattedValue]);
+    }
+  }
+}
+
+function parseNumericValue(input: string): number | null {
+  if (input.endsWith("%")) {
+    const percentageValue = parseFloat(input) / 100;
+    return isNaN(percentageValue) ? null : percentageValue;
+  } else if (input.endsWith("px")) {
+    const pixelValue = parseInt(input);
+    return isNaN(pixelValue) ? null : pixelValue;
+  } else {
+    const numericValue = parseFloat(input);
+    return isNaN(numericValue) ? null : numericValue;
+  }
+}
+
+
 function generateNumberArray(start: number, end: number, interval: number = 4) {
   return Array.from(
     { length: Math.floor((end - start) / interval) + 1 },
     (_, index) => (start + index * interval).toString()
   );
+}
+
+function calcCornerRadius(size: number) {
+  // Calculate cornerRadius as one-third of size
+  let cornerRadius = Math.ceil(size / 3);
+
+  // Ensure cornerRadius is an even integer
+  if (cornerRadius % 2 !== 0) {
+    cornerRadius -= 1; // Round down to the nearest even integer
+  }
+
+  // Cap the minimum at 8px
+  return Math.max(8, cornerRadius);
+}
+
+function calculateCutDepth(size: number, depth: number) {
+  if (isFloat(depth)) {
+    return size * depth;
+  } else {
+    // Handle pixel depth
+    return depth;
+  }
+}
+
+function isFloat(num: number) {
+  return Number(num) === num && num % 1 !== 0;
 }
